@@ -39,6 +39,7 @@ async def read_root() -> Dict[str, str]:
     '''
     return {"message": "Welcome to the CodeGuardian API"}
 
+''' changing method of code analysis
 @app.post("/analyze")
 def analyze: req(CodeRequest):
     template = PromptTemplate.from_template(
@@ -47,3 +48,4 @@ def analyze: req(CodeRequest):
     prompt = template.format(goal = req.goal, code = req.code)
     response = llm(prompt)
     return {"result": response}
+'''
