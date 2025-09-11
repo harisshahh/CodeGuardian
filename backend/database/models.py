@@ -8,4 +8,10 @@ class PullRequest(Base):
     github_id = Column(Integer, unique = True, index = True)
     title = Column(String)
     reviews = relationship("Reviews", back_populates = "pull_request")
-    
+
+class Review(Base):
+    __tablename__ = "reviews"
+    id = Column(Integer, primary_key = True, index = True)
+    pull_request_id = Column(Integer, ForeignKey("pull_requests.id"))
+    content = Column(String)
+    pull_request = relationship("PullRequest", back_populates = "reviews")
