@@ -1,18 +1,18 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
-
-class CodeInput(BaseModel):
+class CodeRequest(BaseModel):
     code: str
 
-class CodeDetails(BaseModel):
+class ReviewResponse(BaseModel):
     result: str
     review_id: int
-    code: str
-    review: str
-    
+    code_snippet: str
 
+class ReviewList(BaseModel):
+    reviews: List[ReviewResponse] 
+    total: int
 
 class Config:
     from_attributes = True

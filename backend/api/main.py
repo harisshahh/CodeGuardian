@@ -1,5 +1,4 @@
 import ast
-import os
 
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
@@ -7,18 +6,9 @@ from sqlalchemy.orm import Session
 import pickle
 
 from backend.database.database import SessionLocal, engine
-from backend.database import crud
+from backend.database import crud, models
 from backend.core.code_analyzer import parse_code
-
-
-
-class CodeRequest(BaseModel):
-    code: str
-
-class ReviewResponse(BaseModel):
-    result: str
-    review_id: int
-    code_snippet: str
+from backend.api import schemas
 
 app = FastAPI()
 
@@ -47,8 +37,8 @@ def get_ai_code_review(code: str, ast_tree: bytes) -> str:
     )
 
 
-@app.post("/api/v1/review_code", response_model=ReviewResponse)
-async def review_code(code_data: CodeRequest, db: Session = Depends(get_db)):
+@app.post("/api/v1/review_code", response_model=schemas.ReviewResponse)
+async def review_code(code_data: schemas.CodeRequest, db: Session = Depends(get_db)):
     code = code_data.code
 
     ast_tree = generate_ast(code)
@@ -64,7 +54,7 @@ async def review_code(code_data: CodeRequest, db: Session = Depends(get_db)):
         pull_request_id=pull_request_id
     )
 
-    return ReviewResponse(
+    return schemas.ReviewResponse(
         result="AST and code review are saved into the database",
         review_id = db_review.id,
         code_snippet = db_review.code[:50]
@@ -74,3 +64,29 @@ async def review_code(code_data: CodeRequest, db: Session = Depends(get_db)):
 @app.get("/")
 async def read_root(db: Session = Depends(get_db)):
     return {"message": "Hello, the app is now connected to the database!"}
+
+@app.get("/api/v1/reviews")
+async def list_reviews(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    reviews = crud.get_all_code_reviews(db, skip = skip, limit = limit)
+    total_count = db.query(models.CodeReview).count()
+    review_responses = [
+        schemas.ReviewResponse(
+            result="Retrieved successfully!",
+            review_id=r.id,
+            code_snippet=r.code[:50]
+        ) for r in reviews
+    ] 
+    return schemas.ReviewList(reviews=review_responses, total=total_count)
+
+
+@app.get("/api/v1/reviews/{review_id}")
+async def get_review(review_id: int, db: Session = Depends(get_db)):
+    db_review = crud.get_code_review_by_id(db, review_id=review_id)
+    if db_review is None:
+        raise HTTPException(status_code=400, detail=f"Review not found")
+    
+    return schemas.ReviewResponse(
+        result="Retrieved successfully",
+        review_id=db_review.id,
+        code_snippet=db_review.code[:50]
+    )

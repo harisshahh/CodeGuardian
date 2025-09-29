@@ -14,3 +14,11 @@ def create_code_review(db: Session, code: str, review: str, ast_tree: bytes, pul
     db.refresh(db_review)
     return db_review
 
+def get_code_review_by_id(db: Session, review_id: int):
+    # retrieves a single code review by primary key id
+    return db.query(models.CodeReview).filter(models.CodeReview.id==review_id).first()
+
+def get_all_code_reviews(db: Session, skip: int = 0, limit: int = 100):
+    # retrieves a paginated list of all the code reviews
+    return db.query(models.CodeReview).offset(skip).limit(limit).all()
+
