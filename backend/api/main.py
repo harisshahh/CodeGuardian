@@ -1,4 +1,7 @@
 import ast
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,7 +13,13 @@ from backend.database import crud, models
 from backend.core.code_analyzer import parse_code
 from backend.api import schemas
 
+load_dotenv()
+
 app = FastAPI()
+
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 def get_db():
     db = SessionLocal()
@@ -29,12 +38,41 @@ def generate_ast(code: str) -> bytes:
 
 
 def get_ai_code_review(code: str, ast_tree: bytes) -> str:
-    ast_preview= ast_tree.decode('utf-8')[:150].replace('\n', ' ') + '.....'
-    return (
-        "**AI Review:** The code is syntactically correct (AST generated)."
-        "Semantic Analysis says nice code, no errors"
-        f"AST starts with: `{ast_preview}`."
+    ast_preview= ast_tree.decode('utf-8')
+    system_prompt = (
+        "You are an expert Python code reviewer. Your task is to provide a brief, professional review."
+        "Focus on security, performance, best practices, and readability."
+        "Start your review with a summary, followed by bullet points for specific suggestions."
     )
+
+    user_prompt = (
+        "Please review the following Python code. The Abstract Syntax Tree (AST) is provided below the code, "
+        "primarily for context to ensure you've understood the structure. "
+        "Only review the code itself. \n\n"
+        "**CODE TO REVIEW:**\n"
+        f"```python\n{code}\n```\n\n"
+        "**AST (for context):**\n"
+        f"```\n{ast_preview[:500]}...\n```"
+    )
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=500
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"OpenAI API Error: {e}")
+        return f"Error connecting to AI service: {e}"
+
+
+
+
 
 
 @app.post("/api/v1/review_code", response_model=schemas.ReviewResponse)
